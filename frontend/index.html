@@ -1,0 +1,524 @@
+<!-- 실행 시 우클릭 후 라이브서버 -->
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>한화오션 용접봉 관리 시스템</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 아이콘 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hanwha: {
+                            orange: '#F37321', // rgb(243, 115, 33)
+                            light: '#F89B6C',  // rgb(248, 155, 108)
+                            pale: '#FBB584',   // rgb(251, 181, 132)
+                            dark: '#1A1A1A'    // k100 대체 진한 검정
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            user-select: none;
+        }
+        /* 페이드 전환 효과 */
+        .fade-transition {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-center items-center overflow-hidden bg-white text-hanwha-dark" onload="startClock()">
+
+    <!-- ========================================== -->
+    <!-- [화면 1] NFC 인식 대기 화면 -->
+    <!-- ========================================== -->
+    <div id="screen-wait" class="absolute inset-0 flex flex-col items-center justify-center space-y-8 p-6 cursor-pointer fade-transition z-10">
+        <!-- 우측 상단 얇은 폰트 gray-500 시계 추가 -->
+        <div class="absolute top-8 right-8 text-right font-light text-gray-500 text-sm">
+            <span id="live-date-1">2026. 10. 08 (수)</span> <span id="live-time-1">17:00:00</span>
+        </div>
+
+        <!-- NFC / 카드 인식 아이콘 (애니메이션 효과) -->
+        <div class="relative flex items-center justify-center w-40 h-40 bg-orange-50 rounded-full text-hanwha-orange shadow-sm animate-pulse">
+            <i class="fa-solid fa-address-card text-7xl"></i>
+            <div class="absolute inset-0 rounded-full border-4 border-orange-200 animate-ping opacity-30"></div>
+        </div>
+
+        <!-- 안내 문구 영역 -->
+        <div class="text-center space-y-3">
+            <h1 class="text-4xl font-extrabold tracking-tight text-hanwha-dark">
+                NFC 카드를 태그해 주세요
+            </h1>
+            <p class="text-xl text-gray-500 font-medium">
+                리더기에 카드를 가까이 대어주세요. <span class="text-xs text-orange-500 block mt-1">(임시로 화면 터치 시 시뮬레이션 전환됨)</span>
+            </p>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- [화면 2] 작업자 선택 및 반입/반출 선택 화면 -->
+    <!-- ========================================== -->
+    <div id="screen-select" class="absolute inset-0 flex flex-col items-center justify-center p-8 opacity-0 pointer-events-none fade-transition z-10">
+        
+        <!-- 좌측 상단 '이전으로' (기존 스타일 통일) -->
+        <div class="absolute top-8 left-8">
+            <button onclick="resetToWait()" class="text-gray-500 hover:text-hanwha-orange text-lg font-bold px-3 py-1 flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> 이전으로
+            </button>
+        </div>
+
+        <!-- 우측 상단 얇은 폰트 gray-500 시계 추가 -->
+        <div class="absolute top-8 right-8 text-right font-light text-gray-500 text-sm">
+            <span id="live-date-2">2026. 10. 08 (수)</span> <span id="live-time-2">17:00:00</span>
+        </div>
+
+        <!-- 상단 안내 문구 영역 -->
+        <div class="text-center mb-12 space-y-3">
+            <div class="inline-flex items-center gap-2 bg-orange-100 text-hanwha-orange px-4 py-1.5 rounded-full font-bold text-sm shadow-sm">
+                <i class="fa-solid fa-circle-check"></i> 작업자 인증 완료
+            </div>
+            
+            <h1 class="text-4xl font-extrabold text-hanwha-dark tracking-tight">
+                안녕하세요, <span class="text-hanwha-orange">홍길동 작업자님</span>
+            </h1>
+            <p class="text-2xl text-gray-500 font-medium">
+                원하시는 업무를 선택해 주세요
+            </p>
+        </div>
+
+        <!-- 반입 / 반출 버튼 -->
+        <div class="flex gap-8 w-full max-w-4xl justify-center">
+            <button onclick="selectOption('반입')" id="btn-in" class="flex-1 max-w-sm h-72 bg-white border-4 border-gray-200 rounded-3xl flex flex-col items-center justify-center space-y-6 shadow-lg transition-all duration-200 hover:border-hanwha-pale focus:outline-none">
+                <div class="w-24 h-24 rounded-2xl bg-orange-50 flex items-center justify-center text-hanwha-orange text-5xl icon-box">
+                    <i class="fa-solid fa-box-open"></i>
+                </div>
+                <span class="text-3xl font-bold text-gray-800 label-text">반 입</span>
+            </button>
+
+            <button onclick="selectOption('반출')" id="btn-out" class="flex-1 max-w-sm h-72 bg-white border-4 border-gray-200 rounded-3xl flex flex-col items-center justify-center space-y-6 shadow-lg transition-all duration-200 hover:border-hanwha-pale focus:outline-none">
+                <div class="w-24 h-24 rounded-2xl bg-orange-50 flex items-center justify-center text-hanwha-orange text-5xl icon-box">
+                    <i class="fa-solid fa-truck-ramp-box"></i>
+                </div>
+                <span class="text-3xl font-bold text-gray-800 label-text">반 출</span>
+            </button>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- [화면 3] 작업 위치 및 용접봉 수량 선택 상세 화면 -->
+    <!-- ========================================== -->
+    <div id="screen-detail" class="absolute inset-0 flex flex-col p-8 opacity-0 pointer-events-none fade-transition z-10 bg-white">
+        
+        <!-- 상단 네비게이션 헤더 -->
+        <div class="flex justify-between items-center pb-4 border-b border-gray-100 mb-6">
+            <div class="flex items-center space-x-4">
+                <button onclick="goBackToSelect()" class="text-gray-500 hover:text-hanwha-orange text-lg font-bold px-3 py-1 flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-left"></i> 이전으로
+                </button>
+                <h2 class="text-2xl font-extrabold text-hanwha-dark" id="detail-title">용접봉 반출 신청</h2>
+            </div>
+            
+            <!-- 기존 '작업자: 홍길동' 자리에 얇은 폰트 gray-500 날짜 및 시간 고정 -->
+            <div class="text-right font-light text-gray-500 text-sm">
+                <span id="live-date-3">2026. 10. 08 (수)</span> <span id="live-time-3">17:00:00</span>
+            </div>
+        </div>
+
+        <!-- 메인 분할 콘텐츠 영역 -->
+        <div class="flex-1 grid grid-cols-2 gap-8 overflow-hidden pb-4">
+            
+            <!-- [좌측] 작업 위치 (블록) 선택 -->
+            <div class="flex flex-col bg-gray-50 p-6 rounded-3xl border-2 border-gray-100">
+                <h3 class="text-xl font-bold text-hanwha-dark mb-4 flex items-center">
+                    <i class="fa-solid fa-location-dot text-hanwha-orange mr-2"></i> 작업 위치 선택
+                </h3>
+                <div class="grid grid-cols-2 gap-4 flex-1 content-start overflow-y-auto pr-1">
+                    <button onclick="selectLocation(this, '2450 탑재 AR3')" class="loc-btn p-5 bg-white border-2 border-gray-200 rounded-2xl text-left font-bold text-gray-800 hover:border-hanwha-pale transition-all shadow-sm">
+                        <div class="text-xs text-gray-500 font-normal mb-1">구역 A</div>
+                        2450 탑재 AR3
+                    </button>
+                    <button onclick="selectLocation(this, '2451 탑재 ER1')" class="loc-btn p-5 bg-white border-2 border-gray-200 rounded-2xl text-left font-bold text-gray-800 hover:border-hanwha-pale transition-all shadow-sm">
+                        <div class="text-xs text-gray-500 font-normal mb-1">구역 B</div>
+                        2451 탑재 ER1
+                    </button>
+                    <button onclick="selectLocation(this, '2452 탑재 ER2')" class="loc-btn p-5 bg-white border-2 border-gray-200 rounded-2xl text-left font-bold text-gray-800 hover:border-hanwha-pale transition-all shadow-sm">
+                        <div class="text-xs text-gray-500 font-normal mb-1">구역 C</div>
+                        2452 탑재 ER2
+                    </button>
+                    <button onclick="selectLocation(this, '2453 블록')" class="loc-btn p-5 bg-white border-2 border-gray-200 rounded-2xl text-left font-bold text-gray-800 hover:border-hanwha-pale transition-all shadow-sm">
+                        <div class="text-xs text-gray-500 font-normal mb-1">구역 D</div>
+                        2453 블록
+                    </button>
+                </div>
+            </div>
+
+            <!-- [우측] 용접봉 종류 및 수량 설정 -->
+            <div class="flex flex-col bg-gray-50 p-6 rounded-3xl border-2 border-gray-100">
+                <h3 class="text-xl font-bold text-hanwha-dark mb-4 flex items-center">
+                    <i class="fa-solid fa-boxes-stacked text-hanwha-orange mr-2"></i> 품명 및 수량 선택
+                </h3>
+                
+                <div class="flex-1 space-y-4 overflow-y-auto pr-1">
+                    <!-- SF-71 -->
+                    <div class="bg-white p-5 rounded-2xl border-2 border-gray-200 flex items-center justify-between shadow-sm">
+                        <div>
+                            <div class="text-xl font-bold text-gray-800">SF-71</div>
+                            <div class="text-sm text-gray-500 mt-0.5">잔여 수량: <span class="font-bold text-hanwha-orange" id="stock-sf71">로드 중...</span></div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button onclick="updateQty('sf71', -1)" class="w-12 h-12 bg-gray-100 rounded-xl font-bold text-gray-500 text-xl hover:bg-gray-200 active:scale-95">-</button>
+                            <span id="qty-sf71" class="w-12 text-center font-bold text-2xl text-hanwha-dark">0</span>
+                            <button onclick="updateQty('sf71', 1)" class="w-12 h-12 bg-orange-50 text-hanwha-orange rounded-xl font-bold text-xl hover:bg-orange-100 active:scale-95">+</button>
+                        </div>
+                    </div>
+
+                    <!-- 81-K2 -->
+                    <div class="bg-white p-5 rounded-2xl border-2 border-gray-200 flex items-center justify-between shadow-sm">
+                        <div>
+                            <div class="text-xl font-bold text-gray-800">81-K2</div>
+                            <div class="text-sm text-gray-500 mt-0.5">잔여 수량: <span class="font-bold text-hanwha-orange" id="stock-k2">로드 중...</span></div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button onclick="updateQty('k2', -1)" class="w-12 h-12 bg-gray-100 rounded-xl font-bold text-gray-500 text-xl hover:bg-gray-200 active:scale-95">-</button>
+                            <span id="qty-k2" class="w-12 text-center font-bold text-2xl text-hanwha-dark">0</span>
+                            <button onclick="updateQty('k2', 1)" class="w-12 h-12 bg-orange-50 text-hanwha-orange rounded-xl font-bold text-xl hover:bg-orange-100 active:scale-95">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 하단 최종 신청 완료 버튼 -->
+        <div class="pt-4">
+            <button onclick="submitApplication()" class="w-full py-5 bg-hanwha-orange text-white text-2xl font-bold rounded-2xl shadow-xl hover:opacity-95 active:scale-[0.99] transition-all">
+                신청 완료하기
+            </button>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- [화면 4] 최종 완료 및 안전 작업 안내 화면 -->
+    <!-- ========================================== -->
+    <div id="screen-complete" class="absolute inset-0 flex flex-col items-center justify-center p-8 opacity-0 pointer-events-none fade-transition z-10 bg-white">
+        <div class="flex flex-col items-center justify-center space-y-6 text-center max-w-2xl">
+            <div class="w-32 h-32 bg-orange-50 rounded-full flex items-center justify-center text-hanwha-orange text-6xl shadow-md animate-bounce">
+                <i class="fa-solid fa-shield-heart"></i>
+            </div>
+            <div class="space-y-2">
+                <h1 class="text-4xl font-extrabold text-hanwha-dark tracking-tight">
+                    신청이 정상 처리되었습니다!
+                </h1>
+                <p class="text-2xl text-gray-500 font-medium" id="complete-summary">
+                    홍길동 작업자님, 안전 작업 하세요!
+                </p>
+            </div>
+            <div class="w-full bg-gray-50 border-2 border-orange-100 rounded-3xl p-6 text-left space-y-3 shadow-sm">
+                <div class="text-lg font-bold text-hanwha-orange flex items-center">
+                    <i class="fa-solid fa-triangle-exclamation mr-2"></i> 현장 안전 수칙 안내
+                </div>
+                <ul class="text-gray-500 space-y-1 text-base list-disc list-inside">
+                    <li>작업 전 개인 보호구(안전모, 보안경, 용접면)를 반드시 착용해 주세요.</li>
+                    <li>지정된 블록 위치에서만 용접봉을 사용 및 관리해 주세요.</li>
+                    <li>작업 완료 후 잔여 수량을 정확히 확인해 주세요.</li>
+                </ul>
+            </div>
+            <button onclick="backToFirstScreen()" class="w-full max-w-md py-4 bg-hanwha-dark text-white text-xl font-bold rounded-2xl shadow-lg hover:opacity-90 active:scale-[0.99] transition-all mt-4">
+                확인 (처음 화면으로)
+            </button>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- [커스텀 확인 팝업 모달] -->
+    <!-- ========================================== -->
+    <div id="confirm-modal" class="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 pointer-events-none fade-transition z-50">
+        <div class="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl border-4 border-orange-100 transform scale-95 transition-transform duration-300" id="modal-box">
+            <div class="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-100">
+                <div class="w-12 h-12 bg-orange-50 text-hanwha-orange rounded-2xl flex items-center justify-center text-2xl font-bold">
+                    <i class="fa-solid fa-circle-question"></i>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-extrabold text-hanwha-dark">신청 내용을 확인해 주세요</h3>
+                    <p class="text-sm text-gray-500">선택하신 정보가 올바른지 확인 후 확정해 주세요.</p>
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded-2xl p-5 space-y-3 mb-8">
+                <div class="flex justify-between text-base">
+                    <span class="text-gray-500 font-medium">구분</span>
+                    <span class="font-bold text-hanwha-orange" id="modal-type">반출</span>
+                </div>
+                <div class="flex justify-between text-base">
+                    <span class="text-gray-500 font-medium">작업 위치</span>
+                    <span class="font-bold text-gray-800" id="modal-location">2450 탑재 AR3</span>
+                </div>
+                <div class="border-t border-gray-200 pt-2 flex justify-between text-base">
+                    <span class="text-gray-500 font-medium">신청 용접봉</span>
+                    <span class="font-bold text-gray-800" id="modal-items">SF-71 (2개)</span>
+                </div>
+            </div>
+            <div class="flex space-x-4">
+                <button onclick="closeConfirmModal()" class="flex-1 py-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-lg rounded-2xl transition-all">
+                    돌아가기
+                </button>
+                <button onclick="executeFinalSubmit()" class="flex-1 py-4 bg-hanwha-orange hover:opacity-95 text-white font-bold text-lg rounded-2xl shadow-lg transition-all">
+                    최종 신청
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 스크립트 로직 -->
+    <script>
+        const screenWait = document.getElementById('screen-wait');
+        const screenSelect = document.getElementById('screen-select');
+        const screenDetail = document.getElementById('screen-detail');
+        const screenComplete = document.getElementById('screen-complete');
+        const btnIn = document.getElementById('btn-in');
+        const btnOut = document.getElementById('btn-out');
+
+        let currentOption = '';        // '반입' 또는 '반출'
+        let selectedLocation = '';     // 선택된 블록 위치
+        let quantities = { sf71: 0, k2: 0 }; // 용접봉 수량
+
+        // 실시간 날짜 및 시간 시계 구동 함수 (gray-500, 가장 얇은 폰트)
+        function startClock() {
+            function updateTime() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const date = String(now.getDate()).padStart(2, '0');
+                
+                const days = ['일', '월', '화', '수', '목', '금', '토'];
+                const dayName = days[now.getDay()];
+
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+
+                const dateStr = `${year}. ${month}. ${date} (${dayName})`;
+                const timeStr = `${hours}:${minutes}:${seconds}`;
+
+                for (let i = 1; i <= 3; i++) {
+                    const dateEl = document.getElementById(`live-date-${i}`);
+                    const timeEl = document.getElementById(`live-time-${i}`);
+                    if (dateEl) dateEl.innerText = `${dateStr}  `;
+                    if (timeEl) timeEl.innerText = timeStr;
+                }
+            }
+            updateTime();
+            setInterval(updateTime, 1000);
+        }
+
+        // 서버에서 최신 창고 재고를 불러와서 화면에 반영하는 함수
+        async function fetchAndUpdateInventory() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/inventory');
+                const inventory = await response.json();
+                
+                const sf71Stock = inventory['SF-71'] ?? 0;
+                const k2Stock = inventory['81-K2'] ?? 0;
+
+                document.getElementById('stock-sf71').innerText = `${sf71Stock}개`;
+                document.getElementById('stock-k2').innerText = `${k2Stock}개`;
+            } catch (error) {
+                console.error("재고 정보 연동 실패:", error);
+            }
+        }
+
+        // 유틸리티: 화면 전환 페이드 애니메이션 함수
+        function showScreen(fromScreen, toScreen) {
+            fromScreen.style.opacity = '0';
+            fromScreen.style.pointerEvents = 'none';
+
+            setTimeout(() => {
+                fromScreen.classList.add('hidden');
+                toScreen.classList.remove('hidden');
+                setTimeout(() => {
+                    toScreen.style.opacity = '1';
+                    toScreen.style.pointerEvents = 'auto';
+                }, 50);
+            }, 300);
+        }
+
+        // [화면 1 -> 화면 2] NFC 태그 시뮬레이션
+        screenWait.addEventListener('click', () => {
+            showScreen(screenWait, screenSelect);
+        });
+
+        // [화면 2 -> 화면 3] 반입 또는 반출 선택 시
+        function selectOption(type) {
+            currentOption = type;
+            document.getElementById('detail-title').innerText = `용접봉 ${type} 신청`;
+
+            // 선택 시 재고 수량 최신화 호출
+            fetchAndUpdateInventory();
+
+            // 선택 스타일 반영
+            [btnIn, btnOut].forEach(btn => {
+                btn.style.borderColor = '#E5E7EB';
+                btn.style.backgroundColor = '#FFFFFF';
+                btn.querySelector('.label-text').style.color = '#1F2937';
+                const iconBox = btn.querySelector('.icon-box');
+                iconBox.style.backgroundColor = '#FFF7ED';
+                iconBox.style.color = '#F37321';
+            });
+
+            const selectedBtn = type === '반입' ? btnIn : btnOut;
+            selectedBtn.style.borderColor = '#F37321';
+            selectedBtn.style.backgroundColor = '#FFF8F3';
+            selectedBtn.style.color = '#F37321';
+            selectedBtn.querySelector('.label-text').style.color = '#F37321';
+            const selectedIconBox = selectedBtn.querySelector('.icon-box');
+            selectedIconBox.style.backgroundColor = '#F37321';
+            selectedIconBox.style.color = '#FFFFFF';
+
+            setTimeout(() => {
+                showScreen(screenSelect, screenDetail);
+            }, 200);
+        }
+
+        // [화면 3 -> 화면 2] 이전으로 돌아가기
+        function goBackToSelect() {
+            showScreen(screenDetail, screenSelect);
+        }
+
+        // [화면 2 -> 화면 1] 처음으로 리셋 ('이전으로' 버튼)
+        function resetToWait() {
+            showScreen(screenSelect, screenWait);
+            [btnIn, btnOut].forEach(btn => {
+                btn.style.borderColor = '#E5E7EB';
+                btn.style.backgroundColor = '#FFFFFF';
+                btn.querySelector('.label-text').style.color = '#1F2937';
+                const iconBox = btn.querySelector('.icon-box');
+                iconBox.style.backgroundColor = '#FFF7ED';
+                iconBox.style.color = '#F37321';
+            });
+        }
+
+        // 작업 위치 선택 로직
+        function selectLocation(buttonElement, locName) {
+            selectedLocation = locName;
+            document.querySelectorAll('.loc-btn').forEach(btn => {
+                btn.style.borderColor = '#E5E7EB';
+                btn.style.backgroundColor = '#FFFFFF';
+                btn.style.color = '#374151';
+            });
+            buttonElement.style.borderColor = '#F37321';
+            buttonElement.style.backgroundColor = '#FFF7ED';
+            buttonElement.style.color = '#F37321';
+        }
+
+        // 수량 조절 로직
+        function updateQty(item, change) {
+            if (quantities[item] + change >= 0) {
+                quantities[item] += change;
+                document.getElementById(`qty-${item}`).innerText = quantities[item];
+            }
+        }
+
+        // [신청 완료하기] 버튼 클릭 시 팝업 오픈
+        function submitApplication() {
+            if (!selectedLocation) {
+                alert('작업 위치(블록)를 선택해 주세요!');
+                return;
+            }
+            if (quantities.sf71 === 0 && quantities.k2 === 0) {
+                alert('최소 1개 이상의 용접봉 수량을 입력해 주세요!');
+                return;
+            }
+
+            document.getElementById('modal-type').innerText = currentOption;
+            document.getElementById('modal-location').innerText = selectedLocation;
+            
+            let itemText = [];
+            if (quantities.sf71 > 0) itemText.push(`SF-71 (${quantities.sf71}개)`);
+            if (quantities.k2 > 0) itemText.push(`81-K2 (${quantities.k2}개)`);
+            document.getElementById('modal-items').innerText = itemText.join(', ');
+
+            const modal = document.getElementById('confirm-modal');
+            const modalBox = document.getElementById('modal-box');
+            modal.classList.remove('hidden');
+            modal.style.opacity = '1';
+            modal.style.pointerEvents = 'auto';
+            modalBox.style.transform = 'scale(100%)';
+        }
+
+        // 완료 화면에서 첫 화면으로 완전 리셋
+        function backToFirstScreen() {
+            selectedLocation = '';
+            quantities = { sf71: 0, k2: 0 };
+            document.getElementById('qty-sf71').innerText = '0';
+            document.getElementById('qty-k2').innerText = '0';
+            
+            document.querySelectorAll('.loc-btn').forEach(btn => {
+                btn.style.borderColor = '#E5E7EB';
+                btn.style.backgroundColor = '#FFFFFF';
+                btn.style.color = '#374151';
+            });
+
+            showScreen(screenComplete, screenWait);
+        }
+        
+        // 팝업창 닫기
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirm-modal');
+            const modalBox = document.getElementById('modal-box');
+            modal.style.opacity = '0';
+            modal.style.pointerEvents = 'none';
+            modalBox.style.transform = 'scale(95%)';
+        }
+
+        // 팝업창에서 [최종 신청]을 눌렀을 때 실행
+        async function executeFinalSubmit() {
+            closeConfirmModal();
+
+            const payload = {
+                action_type: currentOption,       // '반입' 또는 '반출'
+                location: selectedLocation,       // 선택된 블록 위치
+                sf71_qty: quantities.sf71,        // SF-71 수량
+                k2_qty: quantities.k2             // 81-K2 수량
+            };
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/welding', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('complete-summary').innerText = 
+                        `홍길동 작업자님, ${currentOption} 신청 완료되었습니다. 안전 작업 하세요!`;
+
+                    showScreen(screenDetail, screenComplete);
+                } else {
+                    alert(result.detail || '서버 저장 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                console.error("통신 에러:", error);
+                alert('파이썬 서버와 통신할 수 없습니다. 백엔드 서버가 켜져 있는지 확인해 주세요!');
+            }
+        }
+    </script>
+</body>
+</html>

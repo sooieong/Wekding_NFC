@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 관리자 대시보드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 아이콘 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hanwha: {
+                            orange: '#F37321',
+                            dark: '#1A1A1A'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 text-hanwha-dark min-h-screen flex flex-col">
+
+    <!-- 상단 네비게이션 바 -->
+    <header class="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-sm">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-orange-50 text-hanwha-orange rounded-xl flex items-center justify-center font-bold text-xl">
+                <i class="fa-solid fa-clipboard-user"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold text-gray-900">실시간 관리자 대시보드</h1>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <button onclick="fetchLogs()" class="px-4 py-2 bg-orange-50 text-hanwha-orange font-bold rounded-xl hover:bg-orange-100 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-rotate"></i>강제 새로고침
+            </button>
+            <a href="index.html" target="_blank" class="px-4 py-2 bg-hanwha-orange text-white font-bold rounded-xl shadow-md hover:opacity-95 transition-all">
+                <i class="fa-solid fa-tablet-screen-button mr-1"></i> 키오스크 화면 열기
+            </a>
+        </div>
+    </header>
+
+    <!-- 메인 콘텐츠 영역 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-8 space-y-6">
+        
+        <!-- 상단 요약 카드 영역 -->
+        <div class="grid grid-cols-4 gap-6">
+            <div class="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm flex items-center space-x-4">
+                <div class="w-14 h-14 bg-orange-50 text-hanwha-orange rounded-2xl flex items-center justify-center text-2xl font-bold">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 font-medium">총 불출 건수</div>
+                    <div class="text-3xl font-extrabold text-gray-900 mt-1" id="stat-total">0 건</div>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm flex items-center space-x-4">
+                <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl font-bold">
+                    <i class="fa-solid fa-temperature-half"></i>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 font-medium">최근 측정 온도 / 습도</div>
+                    <div class="text-xl font-extrabold text-gray-900 mt-1" id="stat-env">- °C / - %</div>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm flex items-center space-x-4">
+                <div class="w-14 h-14 bg-orange-50 text-hanwha-orange rounded-2xl flex items-center justify-center text-2xl font-bold">
+                    <i class="fa-solid fa-truck-ramp-box"></i>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 font-medium">총 반출 (SF-71 기준)</div>
+                    <div class="text-3xl font-extrabold text-gray-900 mt-1" id="stat-out">0 개</div>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm flex items-center space-x-4">
+                <div class="w-14 h-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center text-2xl font-bold">
+                    <i class="fa-solid fa-box-open"></i>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 font-medium">총 반입 (SF-71 기준)</div>
+                    <div class="text-3xl font-extrabold text-gray-900 mt-1" id="stat-in">0 개</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 실시간 디지털 불출대장 테이블 박스 -->
+        <div class="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <i class="fa-solid fa-book text-hanwha-orange"></i> 불출대장 상세 기록
+                </h2>
+                <span class="text-xs text-gray-500" id="last-update">최종 업데이트: - (1분마다 자동 갱신)</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 text-sm uppercase font-semibold border-b border-gray-200">
+                            <th class="py-4 px-6">불출일시</th>
+                            <th class="py-4 px-6">구분</th>
+                            <th class="py-4 px-6">작업 위치</th>
+                            <th class="py-4 px-6">품명 및 수량</th>
+                            <th class="py-4 px-6">현장 온·습도</th>
+                            <th class="py-4 px-6">작업자</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-table-body" class="divide-y divide-gray-100 text-gray-800 font-medium">
+                        <tr>
+                            <td colspan="6" class="py-8 text-center text-gray-500">데이터를 불러오는 중입니다...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 대시보드 제어 자바스크립트 -->
+    <script>
+        async function fetchLogs() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/welding/logs');
+                const logs = await response.json();
+                
+                const tbody = document.getElementById('log-table-body');
+                tbody.innerHTML = '';
+
+                if (logs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-gray-500">등록된 불출 기록이 없습니다. 키오스크에서 신청을 진행해보세요!</td></tr>`;
+                    document.getElementById('stat-env').innerText = `- °C / - %`;
+                    return;
+                }
+
+                let totalCount = logs.length;
+                let totalOut = 0;
+                let totalIn = 0;
+
+                logs.forEach((log, index) => {
+                    if (log.action_type === '반출') totalOut += (log.sf71_qty || 0);
+                    if (log.action_type === '반입') totalIn += (log.sf71_qty || 0);
+
+                    const badgeColor = log.action_type === '반출' 
+                        ? 'bg-blue-100 text-blue-700' 
+                        : 'bg-orange-100 text-hanwha-orange';
+
+                    let itemDetails = [];
+                    if (log.sf71_qty > 0) itemDetails.push(`SF-71: ${log.sf71_qty}개`);
+                    if (log.k2_qty > 0) itemDetails.push(`81-K2: ${log.k2_qty}개`);
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="py-4 px-6 text-gray-500 text-sm">${log.timestamp}</td>
+                        <td class="py-4 px-6">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold ${badgeColor}">
+                                ${log.action_type}
+                            </span>
+                        </td>
+                        <td class="py-4 px-6 font-bold text-gray-900">${log.location}</td>
+                        <td class="py-4 px-6 font-semibold text-gray-800">${itemDetails.join(' / ')}</td>
+                        <td class="py-4 px-6 text-gray-600 text-sm">
+                            <i class="fa-solid fa-temperature-arrow-up text-orange-500 mr-1"></i> ${log.temperature} / 
+                            <i class="fa-solid fa-droplet text-blue-400 ml-2 mr-1"></i> ${log.humidity}
+                        </td>
+                        <td class="py-4 px-6 font-bold text-gray-900">${log.worker}</td>
+                    `;
+                    tbody.appendChild(tr);
+
+                    if (index === 0) {
+                        document.getElementById('stat-env').innerText = `${log.temperature} / ${log.humidity}`;
+                    }
+                });
+
+                document.getElementById('stat-total').innerText = `${totalCount} 건`;
+                document.getElementById('stat-out').innerText = `${totalOut} 개`;
+                document.getElementById('stat-in').innerText = `${totalIn} 개`;
+
+                const now = new Date().toLocaleTimeString();
+                document.getElementById('last-update').innerText = `최종 업데이트: ${now}`;
+
+            } catch (error) {
+                console.error("대시보드 데이터 로딩 실패:", error);
+            }
+        }
+
+        // 페이지 최초 로드 시 즉시 실행
+        fetchLogs();
+
+        // [핵심] 매분 00초를 정확히 계산하여 1분(60초)마다 새로고침 동기화
+        function scheduleNextSync() {
+            const now = new Date();
+            const delay = (60 - now.getSeconds()) * 1000 - now.getMilliseconds(); // 다음 00초까지 남은 밀리초 계산
+            
+            setTimeout(() => {
+                fetchLogs(); // 00초가 된 순간 실행
+                setInterval(fetchLogs, 60000); // 그 후부터는 정확히 60초(1분)마다 반복
+            }, delay);
+        }
+
+        scheduleNextSync();
+    </script>
+</body>
+</html>
